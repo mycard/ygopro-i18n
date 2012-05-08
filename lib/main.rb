@@ -1,10 +1,16 @@
 #encoding: UTF-8
 require 'yaml'
-$locale = ARGV[0] || "zh-CN"
-$file = "locales/#{$locale}.yml"
-$contents = YAML.load_file($file)[$locale] rescue {}
+require 'locale'
+require 'Win32API' if RUBY_PLATFORM["win"] || RUBY_PLATFORM["ming"]
+
+if ARGV[0]
+  Locale.current = ARGV[0]
+end
+
 def import(file)
   raise "file not found" unless File.file? file
+  $file = "locales/#{$locale}.yml"
+  $contents = YAML.load_file($file)[$locale] rescue {}
   case File.extname(file)
   when ".cdb"
     $contents["cards"] = import_ygopro_db(file)
@@ -48,8 +54,25 @@ def import_ygopro_strings(file)
   end
 end
 def translate
+  puts "current locale: #{Locale.current}"
+  locales = Locale.candidates(supported_language_tags: Dir.glob("locales/*.yml").collect{|file|File.basename(file, ".yml")})
+  puts "candidates locales: #{locales.join(',')}"
+  if locales.empty?
+    puts "unsupported locale, supported_language_tags: #{Dir.glob("locales/*.yml").collect{|file|File.basename(file, ".yml")}.join(',')}"
+    exit
+  end
+  locale = locales.pop.to_s
+  $contents = YAML.load_file("locales/#{locale}.yml")[locale] || {} rescue {}
+  merger = proc { |key,v1,v2| Hash === v1 && Hash === v2 ? v1.merge(v2, &merger) : v2 }
+  locales.reverse.each do |locale|
+    locale = locale.to_s
+    $contents.merge! YAML.load_file("locales/#{locale}.yml")[locale], &merger
+  end
+  puts 'translating card database...'
   translate_ygopro_db("cards.cdb")
+  puts 'translating strings...'
   translate_ygopro_strings("strings.conf")
+  puts 'complete'
 end
 def translate_ygopro_db(file)
   require 'sqlite3'
