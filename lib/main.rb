@@ -1,6 +1,6 @@
 #encoding: UTF-8
 require 'yaml'
-$locale = ARGV[0]
+$locale = ARGV[0] || "zh-CN"
 $file = "locales/#{$locale}.yml"
 $contents = YAML.load_file($file)[$locale] rescue {}
 def import(file)
