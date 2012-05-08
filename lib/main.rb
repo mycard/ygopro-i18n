@@ -57,7 +57,7 @@ def translate_ygopro_db(file)
   db.execute('begin transaction')
   old_cards = import_ygopro_db(file)
   $contents["cards"].each do |number, card|
-    card = old_cards[number].merge card
+    card = old_cards[number].merge(card) if old_cards[number]
     stmt = db.prepare( "replace into texts (id, name, desc, #{1.upto(16).collect{|i|"str#{i}"}.join(', ')}) VALUES (#{(['?']*(16+3)).join(', ')}) "  )
     strings = 1.upto(16).collect { |i| card["str#{i}"] || "" }
     stmt.execute(number, card["name"], card["lore"], strings)
