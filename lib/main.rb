@@ -35,7 +35,7 @@ def import_ygopro_strings(file)
     $contents["strings"] = {}
     file.each_line do |line|
       print "."
-      next if line[0,1] == "#"
+      next if line[0,1] != "!"
       if line =~ /^\!(\w+)\ ([[:alnum:]]+)\ (.*)$/
         type = $1
         id = $2
@@ -49,7 +49,32 @@ def import_ygopro_strings(file)
   end
 end
 def translate
-  #TODO
+  translate_ygopro_db("cards.cdb")
+  translate_ygopro_strings("strings.conf")
+end
+def translate_ygopro_db(file)
+  require 'sqlite3'
+  db = SQLite3::Database.new( file )
+  db.execute('begin transaction')
+  $contents["cards"].each do |number, card|
+    card["strings"] = [""] unless card["strings"]
+    card["strings"].each do |str|
+      str.replace str.encode("UTF-16LE")[0,29].encode("UTF-8") if str
+    end
+    stmt = db.prepare( "replace into texts (id, name, desc, #{1.upto(16).collect{|i|"str#{i}"}.join(', ')}) VALUES (#{(['?']*(16+3)).join(', ')}) "  )
+    stmt.execute(number, card["name"], card["lore"], *card["strings"])
+  end
+  db.execute('commit transaction')
+end
+def translate_ygopro_strings(file)
+  open(file, 'w') do |file|
+    $contents["strings"].each do |type, values|
+      file.puts("##{type}")
+      values.each do |key, value|
+        file.puts("!#{type} #{key} #{value}")
+      end
+    end
+  end
 end
 if ARGV[1]
   import ARGV[1]
