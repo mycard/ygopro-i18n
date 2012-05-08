@@ -19,7 +19,6 @@ def import_ygopro_db(file)
   db = SQLite3::Database.new( file )
   db.results_as_hash = true
   db.execute( "select * from texts" ) do |row|
-    print "."
     number = row["id"]
     result[number] = {}
     result[number]["name"] = row["name"]
@@ -34,7 +33,6 @@ def import_ygopro_strings(file)
   open(file, "r:bom|utf-8") do |file|
     result = {}
     file.each_line do |line|
-      print "."
       next if line[0,1] != "!"
       if line =~ /^\!(\w+)\ ([[:alnum:]]+)\ (.*)$/
         type = $1
@@ -60,9 +58,8 @@ def translate_ygopro_db(file)
   old_cards = import_ygopro_db(file)
   $contents["cards"].each do |number, card|
     card = old_cards[number].merge card
-    card["name"].replace card["name"].encode("UTF-16LE")[0,5].encode("UTF-8")
     stmt = db.prepare( "replace into texts (id, name, desc, #{1.upto(16).collect{|i|"str#{i}"}.join(', ')}) VALUES (#{(['?']*(16+3)).join(', ')}) "  )
-    strings = 1.upto(16).collect { |i| card["str#{i}"] }
+    strings = 1.upto(16).collect { |i| card["str#{i}"] || "" }
     stmt.execute(number, card["name"], card["lore"], strings)
   end
   db.execute('commit transaction')
